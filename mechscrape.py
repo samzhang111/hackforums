@@ -115,14 +115,14 @@ results = br.submit().read()
 cj.save("cookie123")
 
 sublink = "http://www.hackforums.net/archive/index.php/forum-114.html"
+r = br.open(sublink)
+cur_page = br.geturl()
+
+page_links, thread_links = get_links(br)
 
 
 if state[0] is None:
   #if page_link is not yet defined
-  r = br.open(sublink)
-  cur_page = br.geturl()
-
-  page_links, thread_links = get_links(br)
   state[0] = page_links
   state[1] = thread_links
 else:
