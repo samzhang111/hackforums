@@ -1,0 +1,5 @@
+#LWP-Cookies-2.0
+Set-Cookie3: __cfduid=d82e50282a313985e4c59699a8aebecf71374012284; path="/"; domain=".hackforums.net"; path_spec; domain_dot; expires="2019-12-23 23:50:00Z"; version=0
+Set-Cookie3: loginattempts=1; path="/"; domain=".hackforums.net"; path_spec; domain_dot; expires="2014-07-16 22:04:44Z"; version=0
+Set-Cookie3: mybb[lastactive]=1374012284; path="/"; domain=".hackforums.net"; path_spec; domain_dot; expires="2014-07-16 22:04:44Z"; version=0
+Set-Cookie3: mybb[lastvisit]=1374012284; path="/"; domain=".hackforums.net"; path_spec; domain_dot; expires="2014-07-16 22:04:44Z"; version=0
