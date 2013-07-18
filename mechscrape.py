@@ -2,6 +2,7 @@
 import mechanize
 import cookielib
 import re
+import os
 import sys
 import signal
 import atexit
@@ -18,6 +19,20 @@ i_page = None
 i_thread = None
 i_tpage = None
 i = None
+
+def request_page(page):
+	tries = 0
+	while tries < 10:
+		try:
+			r = br.open(page)
+			return r
+		except Exception as e:
+			print "BROWSER ERROR. TRY NUMBER:%d"%tries
+			tries+=1
+			sleep(10)
+	print "Fatal error. Quitting"
+	sys.exit(0)	
+
 
 def write_to_file(of, t_title, t_link, body, start):
 	assert of
@@ -116,7 +131,7 @@ except:
 """
 #Login
 print "(Cookie not found. Logging in!)"
-r = br.open('http://www.hackforums.net/showthread.php?tid=3622698')
+r = request_page('http://www.hackforums.net/showthread.php?tid=3622698')
 br.select_form(nr=0)
 br["username"] = "cant_buy_me_love"
 br["password"] = "aZerba1Jan"
@@ -124,7 +139,7 @@ results = br.submit().read()
 cj.save("cookie123")
 
 sublink = "http://www.hackforums.net/archive/index.php/forum-114.html"
-r = br.open(sublink)
+r = request_page(sublink)
 cur_page = br.geturl()
 
 page_links, thread_links = get_links(br)
@@ -159,7 +174,7 @@ while i_page < len(page_links):
 		i_thread = 0
 		state[4] = i_thread
 	if i_page!=-1: #skip first time
-		r = br.open(page_links[i_page])
+		r = request_page(page_links[i_page])
 		thread_links = get_links(br)[1]
 		state[1] = thread_links
 		state[4] = i_thread
@@ -167,7 +182,7 @@ while i_page < len(page_links):
 	while i_thread < len(thread_links):
 		t_link, t_title = thread_links[i_thread]
 		#crawl thread
-		r = br.open(t_link)
+		r = request_page(t_link)
 		if state[3] == i_page and state[4] == i_thread and state[5] is not None:
 			i_tpage = state[5]
 			t_page_links = state[2]
@@ -191,7 +206,7 @@ while i_page < len(page_links):
 		firstpage = True 
 		while i_tpage < len(t_page_links):
 			if i_tpage != -1:
-				r = br.open(t_page_links[i_tpage])
+				r = request_page(t_page_links[i_tpage])
 			src = r.read()
 			print "On page %d: %s" % (i_tpage+2, br.geturl())
 			b = bs(src)
