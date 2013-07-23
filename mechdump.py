@@ -9,6 +9,9 @@ import atexit
 import pickle
 import time
 from BeautifulSoup import BeautifulSoup as bs
+from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.keys import Keys
 
 #import dblib
 
@@ -19,6 +22,8 @@ i_page = None
 i_thread = None
 i_tpage = None
 i = None
+
+
 
 def _init_browser():
 	global br
