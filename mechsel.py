@@ -28,10 +28,12 @@ i = None
 save_file = ""
 use_selenium = True
 
+timeout=5
+
 def init_selenium():
 	profile = webdriver.FirefoxProfile("profile.hackforums")
 	br = webdriver.Firefox(profile)
-	br.set_page_load_timeout(7)
+	br.set_page_load_timeout(timeout)
 	return br
 
 def init_browser():
@@ -77,11 +79,12 @@ def send_esc(br):
 	p = subprocess.Popen(["xdotool", "search", "--all", "--pid", str(br.binary.process.pid), "--name", "Mozilla Firefox", "key", "Escape"])
 
 def visit_page(br, page):
+	global timeout
 	if use_selenium:
-		try:
-			br.get(page)
-		except TimeoutException:
-			send_esc(br)
+			try:
+				br.get(page)
+			except TimeoutException:
+				send_esc(br)
 	else:
 		tries = 0
 		while tries < 10:
@@ -131,7 +134,15 @@ def get_links(br):
 	where each thread_link is a tuple of (url, title)
 	"""
 	raw_urls = get_urls(br)
-	assert raw_urls
+	retries = 0
+	while not raw_urls:
+		link = br.current_url
+		br.quit()
+		print "get_link failed. restarting browser..."
+		br = init_browser()
+		visit_page(br, link)
+		sleep(10)
+		raw_urls = get_urls(br)
 	plx = []
 	tlx = []
 	for url in raw_urls:
@@ -142,23 +153,27 @@ def get_links(br):
 	plx = sorted(list(set(plx)), key=lambda x: int(re_sort.findall(x)[0]))
 	return plx, tlx
 
+
+if len(sys.argv) < 6:
+	print "Usage: python progname.py dir link ipage part parts"
+
+homedir = sys.argv[1]
+sublink = sys.argv[2]
+i_page = int(sys.argv[3])
+part = int(sys.argv[4])
+parts = int(sys.argv[5])
+save_file = ".hackforums%d-%d.p"%(part,parts)#sys.argv[3]
+#homedir = "hackdumps/"
+#sublink = "http://www.hackforums.net/archive/index.php/forum-114.html"
+
 atexit.register(save_state)
 
 try:
-	f = open(".hackforums.p", "rw")
+	f = open(save_file, "rw")
 	state = pickle.load(f)
 except:
 	state = [None]*6
 	print "No save file found. Initiating new scrape."
-
-if len(sys.argv) < 3:
-	print "Usage: python hackdump.py dir link savefile.p"
-
-homedir = sys.argv[1]
-sublink = sys.argv[2]
-save_file = ".hackforums.p"#sys.argv[3]
-#homedir = "hackdumps/"
-#sublink = "http://www.hackforums.net/archive/index.php/forum-114.html"
 
 if use_selenium:
 	br = init_selenium()
@@ -182,16 +197,19 @@ else:
 	thread_links = state[1]
 	print "Resuming scrape."
 
+i_page = i_page+(part-1)*((len(page_links)-i_page)/parts)
+end_ind = i_page+part*((len(page_links)-i_page)/parts)
+
+print "Scrape part %d of %d: %d-%d" %(part,parts,i_page,end_ind)
 
 if state[3] is not None:
 	#i_page
 	i_page = state[3]
 	print "Resuming scrape on subforum page %d" % i_page
 else:
-	i_page = -1
 	state[3] = i_page
 
-while i_page < len(page_links):
+while i_page < end_ind:
 	sdir = homedir + str(i_page+2) + "/"
 	if not os.path.exists(sdir):
 		os.makedirs(sdir)
@@ -204,12 +222,12 @@ while i_page < len(page_links):
 		state[4] = i_thread
 	if i_page!=-1: #skip first time
 		visit_page(br, page_links[i_page])
-		thread_links = get_links()[1]
+		thread_links = get_links(br)[1]
 		state[1] = thread_links
 		state[4] = i_thread
 		print "\nOn subforum page %d: %s" %(i_page, page_links[i_page]) 
 	while i_thread < len(thread_links):
-		t_link, t_title = thread_links[i_thread]
+		t_link = thread_links[i_thread]
 		#crawl thread
 		visit_page(br, t_link)
 		if state[3] == i_page and state[4] == i_thread and state[5] is not None:
@@ -217,7 +235,7 @@ while i_page < len(page_links):
 			t_page_links = state[2]
 			print "Resuming scrape on thread page %d" % i_tpage
 		else:
-			print "Opening thread %s" % t_title
+			print "Opening thread %s" % t_link 
 			t_link_base = re.split(r"\.html", t_link)[0]
 			#get thread page links
 			t_page_links = []
