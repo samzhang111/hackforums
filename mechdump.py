@@ -7,8 +7,11 @@ import sys
 import signal
 import atexit
 import pickle
-
+import time
 from BeautifulSoup import BeautifulSoup as bs
+from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.keys import Keys
 
 #import dblib
 
@@ -20,23 +23,68 @@ i_thread = None
 i_tpage = None
 i = None
 
+
+
+def _init_browser():
+	global br
+#con, cur = dblib.setup_db()
+
+	br = mechanize.Browser()
+	cj = cookielib.LWPCookieJar()
+	br.set_cookiejar(cj)
+
+# Browser options
+	br.set_handle_equiv(True)
+	br.set_handle_redirect(True)
+	br.set_handle_referer(True)
+	br.set_handle_robots(False)
+
+# Follows refresh 0 but not hangs on refresh > 0
+	br.set_handle_refresh(mechanize._http.HTTPRefreshProcessor(), max_time=1)
+
+# Want debugging messages?
+#br.set_debug_http(True)
+#br.set_debug_redirects(True)
+#br.set_debug_responses(True)
+
+# User-Agent
+	br.addheaders = [('User-agent', 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:22.0) Gecko/20100101 Firefox/22.0')]
+	"""
+	try:
+	cj.load("cookie123")
+	print "Cookie loaded"
+	except:
+	"""
+#Login
+	print "(Cookie not found. Logging in!)"
+	r = br.open('http://www.hackforums.net/showthread.php?tid=3639226')
+	br.select_form(nr=0)
+	br["username"] = "cant_buy_me_love"
+	br["password"] = "aZerba1Jan"
+	results = br.submit().read()
+	cj.save("cookie123")
+	return br
+
 def request_page(page):
+	global br
 	tries = 0
 	while tries < 10:
 		try:
 			r = br.open(page)
 			return r
 		except Exception as e:
-			print "BROWSER ERROR. TRY NUMBER:%d" % tries
+			print "Error: %s" % e.code
 			tries+=1
-			sleep(10)
-	print "Fatal error. Quitting"
+			time.sleep(10)
+	print "Fatal error. Restarting browser."
+	br = _init_browser()
 	sys.exit(0)	
 
 def interrupt(signal, frame):
 	sys.exit(0)
 
 def _save_state():
+	global br
 	br.close()
 	f = open(".hackforums.p", "w")
 	print "EXITING. SAVING STATE TO FILE."
@@ -49,15 +97,15 @@ def _save_state():
 	thread # = %s\n\
 	thread page # = %s" % (state[3], state[4], state[5])
 
-def get_links(br):
+def get_links():
 	"""
-	get_links(br)
+	get_links()
 	input: mechanize browser object
 	gets all thread links and page links from myBB style forum archive page
 	returns: (page_links, thread_links)
 	where each thread_link is a tuple of (url, title)
 	"""
-	assert br
+	global br
 
 	raw_urls = []
 	for link in br.links():
@@ -86,50 +134,20 @@ except:
 	state = [None]*6
 	print "No save file found. Initiating new scrape."
 
+if len(sys.argv) < 3:
+	print "Usage: python hackdump.py dir link"
 
-#con, cur = dblib.setup_db()
+br = _init_browser()
 
-br = mechanize.Browser()
-cj = cookielib.LWPCookieJar()
-br.set_cookiejar(cj)
+homedir = sys.argv[1]
+sublink = sys.argv[2]
 
-# Browser options
-br.set_handle_equiv(True)
-br.set_handle_redirect(True)
-br.set_handle_referer(True)
-br.set_handle_robots(False)
-
-# Follows refresh 0 but not hangs on refresh > 0
-br.set_handle_refresh(mechanize._http.HTTPRefreshProcessor(), max_time=1)
-
-# Want debugging messages?
-#br.set_debug_http(True)
-#br.set_debug_redirects(True)
-#br.set_debug_responses(True)
-
-# User-Agent
-br.addheaders = [('User-agent', 'Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.0.1) Gecko/2008071615 Fedora/3.0.1-1.fc9 Firefox/3.0.1')]
-"""
-try:
-cj.load("cookie123")
-print "Cookie loaded"
-except:
-"""
-#Login
-print "(Cookie not found. Logging in!)"
-r = request_page('http://www.hackforums.net/showthread.php?tid=3622698')
-br.select_form(nr=0)
-br["username"] = "cant_buy_me_love"
-br["password"] = "aZerba1Jan"
-results = br.submit().read()
-cj.save("cookie123")
-
-homedir = "hackdumps/"
-sublink = "http://www.hackforums.net/archive/index.php/forum-114.html"
+#homedir = "hackdumps/"
+#sublink = "http://www.hackforums.net/archive/index.php/forum-114.html"
 r = request_page(sublink)
 cur_page = br.geturl()
 
-page_links, thread_links = get_links(br)
+page_links, thread_links = get_links()
 
 if not os.path.exists(homedir):
 	os.makedirs(homedir)
@@ -166,7 +184,7 @@ while i_page < len(page_links):
 		state[4] = i_thread
 	if i_page!=-1: #skip first time
 		r = request_page(page_links[i_page])
-		thread_links = get_links(br)[1]
+		thread_links = get_links()[1]
 		state[1] = thread_links
 		state[4] = i_thread
 		print "\nOn subforum page %d: %s" %(i_page, br.geturl()) 
